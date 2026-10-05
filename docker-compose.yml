@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: feedbackflow
+      POSTGRES_USER: feedbackflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-feedbackflow}
+    volumes:
+      - feedbackflow-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feedbackflow -d feedbackflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://feedbackflow:${POSTGRES_PASSWORD:-local-feedbackflow}@db:5432/feedbackflow
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-feedbackflow-demo}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
+      AI_MODEL: ${AI_MODEL:-gpt-4.1-mini}
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  feedbackflow-data:
