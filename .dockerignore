@@ -1,0 +1,11 @@
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.db
+.venv
+.git
+.github
+.env
+backend/static
+coverage

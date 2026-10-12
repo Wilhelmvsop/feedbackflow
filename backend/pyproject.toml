@@ -1,0 +1,26 @@
+[project]
+name = "feedbackflow-backend"
+version = "0.2.0"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning:app.*", "ignore:Using `httpx` with `starlette.testclient`"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/mcp_server.py"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "BLE"]
+ignore = ["B008", "E501"]  # line length is owned by `ruff format`
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

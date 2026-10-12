@@ -2,7 +2,7 @@
   const script = document.currentScript;
   if (!script) return;
   const api = (script.dataset.api || new URL("/api", script.src).origin + "/api").replace(/\/$/, "");
-  const project = script.dataset.project || "default";
+  const project = encodeURIComponent(script.dataset.project || "demo");
   const button = document.createElement("button");
   button.textContent = "Share feedback";
   button.setAttribute("aria-label", "Share product feedback");
@@ -24,11 +24,14 @@
     const keyName = `feedbackflow:${project}:submission`;
     let externalKey = sessionStorage.getItem(keyName);
     if (!externalKey || sessionStorage.getItem(`${keyName}:sent`)) {
+      // A fresh key per new submission; retries of a failed send reuse it so the server can deduplicate.
       externalKey = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
       sessionStorage.setItem(keyName, externalKey);
+      sessionStorage.removeItem(`${keyName}:sent`);
     }
     try {
-      const response = await fetch(`${api}/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: panel.querySelector("textarea").value, category: panel.querySelector("select").value, page_path: panel.querySelector("input[type=checkbox]").checked ? window.location.pathname : null, external_key: externalKey }) });
+      const response = await fetch(`${api}/public/${project}/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: panel.querySelector("textarea").value, category: panel.querySelector("select").value, page_path: panel.querySelector("input[type=checkbox]").checked ? window.location.pathname : null, external_key: externalKey }) });
+      if (response.status === 429) throw new Error("You're sending feedback quickly — please wait a moment and try again.");
       if (!response.ok) throw new Error("We couldn't send that yet. Please try again.");
       sessionStorage.setItem(`${keyName}:sent`, "1");
       status.textContent = "Thanks — your feedback was received.";

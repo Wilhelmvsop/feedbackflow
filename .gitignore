@@ -1,8 +1,21 @@
+# Python
 .venv/
-node_modules/
-dist/
 __pycache__/
 .pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Build output served by the API
+backend/static/
+
+# Local state & secrets
 .env
 *.db
-coverage/
+*.tsbuildinfo

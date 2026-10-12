@@ -12,13 +12,15 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
   app:
     build: .
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://feedbackflow:${POSTGRES_PASSWORD:-local-feedbackflow}@db:5432/feedbackflow
-      DEMO_PASSWORD: ${DEMO_PASSWORD:-feedbackflow-demo}
+      # The image defaults to APP_ENV=production, which refuses the default demo password.
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?Set DEMO_PASSWORD in .env or your shell}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
@@ -26,5 +28,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  mcp:
+    build: .
+    profiles: ["mcp"]
+    command: ["python", "-m", "app.mcp_server"]
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql+psycopg://feedbackflow:${POSTGRES_PASSWORD:-local-feedbackflow}@db:5432/feedbackflow
+      AUTO_MIGRATE: "false"
+      SEED_DEMO: "false"
+      MCP_HOST: 0.0.0.0
+      MCP_ACCESS_TOKEN: ${MCP_ACCESS_TOKEN:?Set MCP_ACCESS_TOKEN to run the MCP profile}
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+
 volumes:
   feedbackflow-data:
