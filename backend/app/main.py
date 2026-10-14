@@ -67,6 +67,11 @@ def create_app(*, run_startup: bool = True) -> FastAPI:
             response.headers.setdefault("X-Frame-Options", "DENY")
         return response
 
+    @app.get("/api/health/live", tags=["system"])
+    def liveness():
+        # Process-only check for orchestrator liveness probes: a database outage should not restart pods.
+        return {"ok": True}
+
     @app.get("/api/health", tags=["system"])
     def health():
         try:

@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifier
+  labels:
+    app.kubernetes.io/name: feedbackflow-notifier
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: feedbackflow-notifier
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feedbackflow-notifier
+    spec:
+      # Matches the notifier's SIGTERM handler, which drains in-flight webhook deliveries.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: notifier
+          image: feedbackflow-notifier
+          ports:
+            - name: http
+              containerPort: 8002
+          env:
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef: { name: feedbackflow-config, key: APP_ENV }
+            - name: WEBHOOK_FORMAT
+              valueFrom:
+                configMapKeyRef: { name: feedbackflow-config, key: WEBHOOK_FORMAT }
+            - name: NOTIFIER_TOKEN
+              valueFrom:
+                secretKeyRef: { name: feedbackflow-secrets, key: NOTIFIER_TOKEN }
+            - name: WEBHOOK_URLS
+              valueFrom:
+                secretKeyRef: { name: feedbackflow-secrets, key: WEBHOOK_URLS, optional: true }
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef: { name: feedbackflow-secrets, key: WEBHOOK_SECRET, optional: true }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+---
+# Cluster-internal only: the API publishes to it, nothing outside the cluster can.
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifier
+  labels:
+    app.kubernetes.io/name: feedbackflow-notifier
+spec:
+  selector:
+    app.kubernetes.io/name: feedbackflow-notifier
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,7 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from sqlalchemy import select
 
-from .. import services
+from .. import notify, services
 from ..deps import DB, CurrentUser
 from ..models import Requirement, Task
 from ..schemas import RequirementOut, RequirementUpdate, TaskIn, TaskUpdate
@@ -22,9 +22,15 @@ def get_requirement(requirement_id: int, db: DB, user: CurrentUser):
 
 
 @router.patch("/{requirement_id}", response_model=RequirementOut)
-def update_requirement(requirement_id: int, data: RequirementUpdate, db: DB, user: CurrentUser):
+def update_requirement(
+    requirement_id: int, data: RequirementUpdate, db: DB, user: CurrentUser, background: BackgroundTasks
+):
     requirement = services.owned_requirement(db, user.workspace_id, requirement_id)
-    return services.update_requirement(db, requirement, data.model_dump(exclude_unset=True))
+    previous = requirement.status
+    requirement = services.update_requirement(db, requirement, data.model_dump(exclude_unset=True))
+    if requirement.status != previous and notify.enabled():
+        background.add_task(notify.publish, notify.requirement_status_changed(user.workspace, requirement, previous))
+    return requirement
 
 
 def _owned_task(db, requirement: Requirement, task_id: int) -> Task:

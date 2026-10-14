@@ -25,9 +25,22 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
       AI_MODEL: ${AI_MODEL:-gpt-4.1-mini}
+      NOTIFIER_URL: http://notifier:8002
+      NOTIFIER_TOKEN: ${NOTIFIER_TOKEN:-local-notifier-token}
     depends_on:
       db:
         condition: service_healthy
+      notifier:
+        condition: service_healthy
+
+  notifier:
+    build: services/notifier
+    environment:
+      NOTIFIER_TOKEN: ${NOTIFIER_TOKEN:-local-notifier-token}
+      # Comma-separated webhook URLs; empty means events are accepted and logged but not delivered.
+      WEBHOOK_URLS: ${WEBHOOK_URLS:-}
+      WEBHOOK_FORMAT: ${WEBHOOK_FORMAT:-json}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
 
   mcp:
     build: .

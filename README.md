@@ -9,8 +9,10 @@ FeedbackFlow collects feedback through an embeddable widget, lets a team triage 
 | API | FastAPI · SQLAlchemy 2 · Alembic · Pydantic v2 |
 | Dashboard | React 18 · TypeScript · TanStack Query · Vite |
 | Data | SQLite (local) / PostgreSQL (Docker, production) |
+| Notifier | Node.js 22 · TypeScript · Fastify · Vitest — webhook/Slack fan-out service |
 | Integrations | Embeddable JS widget · MCP tool server |
-| Quality | pytest (92% coverage) · Vitest + Testing Library · Ruff · ESLint · GitHub Actions |
+| Infrastructure | Docker · Kubernetes (Kustomize, kind) · Azure Container Apps · ACR · Azure Database for PostgreSQL · Bicep |
+| Quality | pytest (93% coverage) · Vitest + Testing Library · Ruff · ESLint · GitHub Actions (CI + kind e2e + CD) |
 
 ## Quick start
 
@@ -34,7 +36,18 @@ docker compose up --build                                   # app on :8000
 MCP_ACCESS_TOKEN=$(openssl rand -hex 24) docker compose --profile mcp up --build   # + MCP on :8001
 ```
 
-The image builds the dashboard, runs as a non-root user, applies migrations on start, and exposes a health check at `/api/health`. See [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) for a one-click Render deployment.
+The image builds the dashboard, runs as a non-root user, applies migrations on start, and exposes health checks at `/api/health` (database) and `/api/health/live` (process). Compose also starts the notifier; set `WEBHOOK_URLS` to have it deliver events.
+
+### Kubernetes and Azure
+
+```sh
+make kind-up                  # local kind cluster at http://localhost:8080, with an end-to-end smoke test
+deploy/azure/bootstrap.sh     # Azure Container Apps + ACR + PostgreSQL Flexible Server (after `az login`)
+```
+
+- [docs/KUBERNETES.md](docs/KUBERNETES.md) covers the manifests, health checks and Secrets.
+- [docs/DEPLOY_AZURE.md](docs/DEPLOY_AZURE.md) covers the Azure architecture, cost and GitHub OIDC continuous deployment.
+- [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) is the one-click Render alternative.
 
 ## Project layout
 
@@ -57,6 +70,9 @@ frontend/src/
   components/        inbox, drawers, requirements, widget setup
   lib/               auth context, toasts, formatting
 public/feedbackflow.js   embeddable widget
+services/notifier/       TypeScript webhook notifier (Fastify + Vitest)
+deploy/k8s/              Kustomize base + kind overlay, kind-up.sh
+deploy/azure/            Bicep template + bootstrap.sh
 ```
 
 ## Features
@@ -66,6 +82,7 @@ public/feedbackflow.js   embeddable widget
 - **Analysis** — versioned and idempotent per feedback item, runs in the background, retryable after failure. Analyses interrupted by a restart are marked failed on boot so they can be retried.
 - **Requirements** — one draft per feedback item, linked through a join table; editable fields; tasks; enforced lifecycle `draft → confirmed → delivered`; delivery resolves source feedback.
 - **Auth** — PBKDF2 password hashes; opaque bearer tokens stored only as SHA-256 digests, with expiry; login rate limiting. Every team query is scoped to the caller's workspace.
+- **Notifications** — new widget feedback and requirement status changes are published to the [notifier](services/notifier/README.md), which delivers them to Slack or HMAC-signed JSON webhooks with retries.
 - **MCP** — `list_feedback`, `get_feedback`, `create_requirement_draft`, `get_requirement`, bound to one workspace and bearer-protected when exposed beyond localhost.
 
 ### Embedding the widget
@@ -89,7 +106,12 @@ make format      # ruff format + autofix
 make migration m="describe change"   # autogenerate an Alembic revision
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, type-checks, both test suites, applies migrations against PostgreSQL with `alembic check`, and builds the Docker image.
+CI (`.github/workflows/ci.yml`) does the following:
+
+- runs lint, type-checks and all three test suites;
+- applies migrations against PostgreSQL with `alembic check`;
+- deploys both images to a kind cluster and checks the widget → API → notifier → webhook path end to end;
+- on `main`, pushes the images to Azure Container Registry and rolls them out to Azure Container Apps.
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for architecture notes and [skills/feedback-to-requirement/SKILL.md](skills/feedback-to-requirement/SKILL.md) for the agent workflow skill.
 

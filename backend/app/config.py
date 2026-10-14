@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # MCP server
     mcp_workspace_slug: str = "demo"
 
+    # Notifier service (services/notifier). Unset disables event publishing.
+    notifier_url: str | None = None
+    notifier_token: str | None = None
+    notifier_timeout_seconds: float = 3
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def split_origins(cls, value):
@@ -53,6 +58,11 @@ class Settings(BaseSettings):
             if value.startswith(prefix):
                 return "postgresql+psycopg://" + value.removeprefix(prefix)
         return value
+
+    @field_validator("notifier_url")
+    @classmethod
+    def blank_notifier_is_disabled(cls, value: str | None) -> str | None:
+        return value.strip().rstrip("/") or None if value else None
 
     @field_validator("ai_base_url")
     @classmethod

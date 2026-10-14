@@ -1,0 +1,13 @@
+# Non-secret settings shared by the API and the notifier. Secrets live in `feedbackflow-secrets`.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feedbackflow-config
+data:
+  APP_ENV: production
+  LOG_LEVEL: INFO
+  AUTO_MIGRATE: "true"
+  SEED_DEMO: "true"
+  CORS_ORIGINS: http://localhost
+  NOTIFIER_URL: http://notifier
+  WEBHOOK_FORMAT: json

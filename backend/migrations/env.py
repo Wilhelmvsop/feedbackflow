@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from app import models  # noqa: F401 - register tables on Base.metadata
 from app.config import settings
@@ -14,6 +14,9 @@ if not config.get_main_option("sqlalchemy.url"):
     config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
+
+# Arbitrary constant: replicas starting together queue on this lock instead of racing the same DDL.
+MIGRATION_LOCK_ID = 7_243_561
 
 
 def run_migrations_offline() -> None:
@@ -35,6 +38,8 @@ def run_migrations_online() -> None:
         # Batch mode lets ALTER TABLE migrations work on SQLite too.
         context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
         with context.begin_transaction():
+            if connection.dialect.name == "postgresql":
+                connection.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": MIGRATION_LOCK_ID})
             context.run_migrations()
 
 
