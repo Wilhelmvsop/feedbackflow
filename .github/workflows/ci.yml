@@ -110,7 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [kubernetes]
     # Runs once deploy/azure/bootstrap.sh has created the infrastructure and set the repository variables.
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AZURE_CLIENT_ID != ''
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.AZURE_CLIENT_ID != ''
     permissions:
       contents: read
       id-token: write  # OIDC token exchanged for an Azure access token; no stored credentials
