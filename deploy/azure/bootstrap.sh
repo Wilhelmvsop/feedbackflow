@@ -2,7 +2,7 @@
 # One-time (and re-runnable) Azure setup for FeedbackFlow. Needs: az (logged in), docker, openssl, python3.
 #
 #   az login --use-device-code
-#   deploy/azure/bootstrap.sh
+#   deploy/azure/bootstrap.sh            # INFRA_ONLY=1 stops before images/apps (no Docker needed)
 #
 # Creates the resource group and everything in main.bicep, pushes the first images, deploys both
 # container apps, smoke-tests the public URL, and prints (or sets, if `gh` is logged in) the GitHub
@@ -60,6 +60,10 @@ log "Deploying registry, database, identities, environment (PostgreSQL takes ~5-
 OUTPUTS=$(deploy false)
 ACR=$(output registryName)
 LOGIN_SERVER=$(output registryLoginServer)
+if [[ ${INFRA_ONLY:-0} == 1 ]]; then
+  log "Infrastructure ready (registry $LOGIN_SERVER). Re-run without INFRA_ONLY to push images and deploy the apps."
+  exit 0
+fi
 
 TAG=$(git -C "$ROOT" rev-parse --short HEAD)
 [[ -z $(git -C "$ROOT" status --porcelain) ]] || TAG="$TAG-dirty-$(date +%s)"
@@ -68,10 +72,11 @@ NOTIFIER_IMAGE=$LOGIN_SERVER/feedbackflow-notifier:$TAG
 
 log "Building and pushing $TAG to $LOGIN_SERVER"
 az acr login -n "$ACR"
-docker build -t "$APP_IMAGE" "$ROOT"
-docker build -t "$NOTIFIER_IMAGE" "$ROOT/services/notifier"
-docker push "$APP_IMAGE"
-docker push "$NOTIFIER_IMAGE"
+# Container Apps rejects Docker v2 (legacy builder) layer media types, so push OCI images via BuildKit.
+docker buildx inspect feedbackflow >/dev/null 2>&1 || docker buildx create --name feedbackflow --driver docker-container >/dev/null
+push() { docker buildx build --builder feedbackflow --provenance=false --output type=image,push=true,oci-mediatypes=true -t "$1" "$2"; }
+push "$APP_IMAGE" "$ROOT"
+push "$NOTIFIER_IMAGE" "$ROOT/services/notifier"
 
 log "Deploying container apps"
 OUTPUTS=$(deploy true "$APP_IMAGE" "$NOTIFIER_IMAGE")

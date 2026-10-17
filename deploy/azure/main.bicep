@@ -188,11 +188,12 @@ resource notifier 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
       // Internal only: reachable from apps in this environment, not from the internet.
       ingress: { external: false, targetPort: 8002, transport: 'http' }
       registries: registryAuth
-      secrets: [
-        { name: 'notifier-token', value: notifierToken }
-        { name: 'webhook-urls', value: webhookUrls }
-        { name: 'webhook-secret', value: webhookSecret }
-      ]
+      // Container Apps rejects empty secret values, so optional ones are only added when set.
+      secrets: concat(
+        [{ name: 'notifier-token', value: notifierToken }],
+        empty(webhookUrls) ? [] : [{ name: 'webhook-urls', value: webhookUrls }],
+        empty(webhookSecret) ? [] : [{ name: 'webhook-secret', value: webhookSecret }]
+      )
     }
     template: {
       containers: [
@@ -200,13 +201,15 @@ resource notifier 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
           name: 'notifier'
           image: notifierImage
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
-          env: [
-            { name: 'APP_ENV', value: 'production' }
-            { name: 'WEBHOOK_FORMAT', value: webhookFormat }
-            { name: 'NOTIFIER_TOKEN', secretRef: 'notifier-token' }
-            { name: 'WEBHOOK_URLS', secretRef: 'webhook-urls' }
-            { name: 'WEBHOOK_SECRET', secretRef: 'webhook-secret' }
-          ]
+          env: concat(
+            [
+              { name: 'APP_ENV', value: 'production' }
+              { name: 'WEBHOOK_FORMAT', value: webhookFormat }
+              { name: 'NOTIFIER_TOKEN', secretRef: 'notifier-token' }
+            ],
+            empty(webhookUrls) ? [] : [{ name: 'WEBHOOK_URLS', secretRef: 'webhook-urls' }],
+            empty(webhookSecret) ? [] : [{ name: 'WEBHOOK_SECRET', secretRef: 'webhook-secret' }]
+          )
           probes: [
             { type: 'Liveness', httpGet: { path: '/healthz', port: 8002 }, periodSeconds: 20 }
             { type: 'Readiness', httpGet: { path: '/readyz', port: 8002 }, periodSeconds: 10 }

@@ -127,13 +127,17 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: docker/setup-buildx-action@v3
       - name: Build and push images to ACR
+        # OCI media types: Container Apps fails to provision revisions from Docker v2 layer media types.
         run: |
           az acr login --name "${{ vars.ACR_NAME }}"
-          docker build -t "$APP_IMAGE" .
-          docker build -t "$NOTIFIER_IMAGE" services/notifier
-          docker push "$APP_IMAGE"
-          docker push "$NOTIFIER_IMAGE"
+          build() {  # build <image> <context> <cache scope>
+            docker buildx build --provenance=false --output type=image,push=true,oci-mediatypes=true \
+              --cache-from "type=gha,scope=$3" --cache-to "type=gha,mode=max,scope=$3" -t "$1" "$2"
+          }
+          build "$APP_IMAGE" . app
+          build "$NOTIFIER_IMAGE" services/notifier notifier
       - name: Roll out new revisions
         run: |
           az containerapp update -g "${{ vars.AZURE_RESOURCE_GROUP }}" -n "${{ vars.AZURE_NOTIFIER_NAME }}" --image "$NOTIFIER_IMAGE" -o none

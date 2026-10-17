@@ -44,9 +44,8 @@ EOF
 fi
 
 kubectl -n ingress-nginx wait --for=condition=Available deployment/ingress-nginx-controller --timeout=180s
-# The admission webhook can lag behind the controller Deployment becoming Available.
-kubectl -n ingress-nginx wait --for=condition=Complete job/ingress-nginx-admission-patch --timeout=120s
 
+# The admission webhook can lag behind the controller becoming Available, hence the retries.
 log "Applying manifests"
 for attempt in 1 2 3 4 5; do
   kubectl apply -k "$K8S/overlays/local" && break
