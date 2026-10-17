@@ -23,6 +23,9 @@ param notifierImage string = ''
 @description('GitHub repository (owner/name) allowed to deploy from its main branch via OIDC.')
 param githubRepo string
 
+@description('Numeric GitHub ids as "<ownerId>/<repoId>". Newer repositories present OIDC subjects like repo:owner@<ownerId>/name@<repoId>:ref:...; empty = only the classic subject is trusted.')
+param githubRepoIds string = ''
+
 param postgresAdminUser string = 'feedbackflow'
 
 @secure()
@@ -92,6 +95,21 @@ resource githubFederation 'Microsoft.ManagedIdentity/userAssignedIdentities/fede
   properties: {
     issuer: 'https://token.actions.githubusercontent.com'
     subject: 'repo:${githubRepo}:ref:refs/heads/main'
+    audiences: ['api://AzureADTokenExchange']
+  }
+}
+
+var githubRepoParts = split(githubRepo, '/')
+var githubIdParts = split(githubRepoIds, '/')
+
+// Federated credentials on one identity cannot be written concurrently, hence the dependsOn.
+resource githubFederationIds 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = if (!empty(githubRepoIds)) {
+  parent: githubIdentity
+  name: 'github-main-ids'
+  dependsOn: [githubFederation]
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: empty(githubRepoIds) ? '' : 'repo:${githubRepoParts[0]}@${githubIdParts[0]}/${githubRepoParts[1]}@${githubIdParts[1]}:ref:refs/heads/main'
     audiences: ['api://AzureADTokenExchange']
   }
 }
