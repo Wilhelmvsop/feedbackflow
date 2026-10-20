@@ -266,6 +266,8 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
             { name: 'DATABASE_URL', secretRef: 'database-url' }
             { name: 'DEMO_PASSWORD', secretRef: 'demo-password' }
             { name: 'CORS_ORIGINS', value: appUrl }
+            // Container Apps ingress (Envoy) appends the caller's IP to X-Forwarded-For.
+            { name: 'TRUSTED_PROXY_HOPS', value: '1' }
             { name: 'NOTIFIER_URL', value: deployApps ? 'https://${notifier!.properties.configuration.ingress.fqdn}' : '' }
             { name: 'NOTIFIER_TOKEN', secretRef: 'notifier-token' }
             // The notifier may be scaled to zero; publishing runs after the response, so waiting is harmless.

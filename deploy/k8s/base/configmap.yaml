@@ -9,5 +9,7 @@ data:
   AUTO_MIGRATE: "true"
   SEED_DEMO: "true"
   CORS_ORIGINS: http://localhost
+  # ingress-nginx sets X-Forwarded-For to the caller's IP.
+  TRUSTED_PROXY_HOPS: "1"
   NOTIFIER_URL: http://notifier
   WEBHOOK_FORMAT: json

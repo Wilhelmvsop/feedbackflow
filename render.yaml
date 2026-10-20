@@ -12,6 +12,9 @@ services:
           property: connectionString
       - key: DEMO_PASSWORD
         sync: false
+      # Render's load balancer appends the caller's IP to X-Forwarded-For.
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
 
   - type: web
     name: feedbackflow-mcp

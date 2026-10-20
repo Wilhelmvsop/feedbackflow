@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 DEFAULT_DEMO_PASSWORD = "feedbackflow-demo"
@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Abuse protection (per client IP, per minute)
     login_rate_limit: int = 10
     public_feedback_rate_limit: int = 20
+    # Reverse proxies in front of the API that append to X-Forwarded-For (Container Apps / ingress-nginx: 1).
+    # 0 ignores the header entirely; never set it higher than the real number of proxies.
+    trusted_proxy_hops: int = Field(default=0, ge=0)
 
     # Optional model provider (OpenAI-compatible chat completions API)
     ai_api_key: str | None = None
