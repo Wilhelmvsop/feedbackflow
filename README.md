@@ -1,5 +1,9 @@
 # FeedbackFlow
 
+[![Watch the FeedbackFlow demo (1:58)](docs/media/feedbackflow-demo-thumbnail.jpg)](docs/media/feedbackflow-demo.mp4)
+
+▶️ **[Watch the demo video (1:58, with voiceover)](docs/media/feedbackflow-demo.mp4)**
+
 Turn scattered user feedback into traceable, reviewable product work.
 
 FeedbackFlow collects feedback through an embeddable widget, lets a team triage it in a dashboard, drafts a requirement from each item (offline by default, optionally with an LLM), and keeps every requirement linked to the feedback it came from — through human confirmation, task breakdown, and delivery.
